@@ -13,16 +13,47 @@ end]
 
 count = 0
 current = edges.keys.select {|node| node[-1] == 'A'}
+terminal = current.map {[]}
+cycles = current.map {nil}
+visits = instructions.map {{}}
 
-until current.all? {|node| node[-1] == 'Z'}
-  instructions.each do |instruction|
+until current.all? {|node| node[-1] == 'Z'} || cycles.all?
+  instructions.each_with_index do |instruction, instruction_idx|
+    count += 1
     current.map! do |node|
       raise "No edge starting from #{node}" unless edges.has_key? node
       edges[node][instruction]
     end
-    count += 1
-    break if current.all? {|node| node[-1] == 'Z'}
+    current.each_with_index do |node, current_idx|
+      terminal[current_idx].push count if node[-1] == 'Z'
+      next if cycles[current_idx]
+      if visits[instruction_idx][node]
+        cycles[current_idx] = [visits[instruction_idx][node], count]
+      else
+        visits[instruction_idx][node] = count
+      end
+    end
+    break if current.all? {|node| node[-1] == 'Z'} || cycles.all?
   end
 end
 
-puts count
+if current.all? {|node| node[-1] == 'Z'}
+  puts count
+  exit 0
+end
+
+raise NotImplementedError unless terminal.all? {|counts| counts.length == 1}
+terminal.map! &:first
+
+raise NotImplementedError unless cycles.each_with_index.all? {|(start, finish), idx| terminal[idx] == finish - start}
+
+require 'prime'
+require 'set'
+
+puts terminal.inject(Set.new) {|factors, count|
+  factors_counts = Prime.prime_division count
+  raise NotImplementedError unless factors_counts.all? {|_, count| count == 1}
+  factors + factors_counts.map(&:first)
+}.inject(1) {|product, factor|
+  product * factor
+}
